@@ -1,0 +1,423 @@
+ <!doctype html>
+<html data-ng-app="myApp">
+<head>
+    <meta charset="utf-8">
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.2.3/angular.min.js"></script>
+    <title data-ng-bind-template="Search: {{query}}"></title>
+    <style>
+        div#word {
+            width: 320px;
+            height: 100px;
+background: #C3C3C3;
+            font-size: 40px;
+            padding-top: 50px;
+            color: #0000;
+            text-align: center;
+border-bottom: solid 2px #2C2968;
+text-shadow: 1px 1px 1px #5c5c5c;
+border-radius: 10px 10px 0 0;
+        }
+
+        button.first_line {
+            font-size: 20px;
+            background-position:center; 
+            border: none;
+            width: 104px;
+            height: 50px;
+font-size: 12px;
+border-bottom: solid 2px #2C2968;
+background-color: #8197A1;
+color: #fff;
+        }
+button.second_line {
+            font-size: 20px;
+            background-position:center; 
+            border: none;
+            width: 77px;
+            height: 50px;
+font-size: 12px;
+border-bottom: solid 2px #2C2968;
+background-color: #8197A1;
+color: #fff;
+        }
+            button:active {
+                background: yellow;
+            }
+
+            button:focus { 
+                outline: none; 
+            }
+
+        div#wrapper {
+            width: 320px;
+            height: 480px;
+            margin: 0 auto;
+border: solid 2px #2C2968;
+border-radius: 10px;
+font-size:10px;
+        }
+
+        div#frame_holder {
+            display: none;
+            position: absolute;
+            left: 600px;
+            top: 20px;
+        }
+input.newword{
+width: 145px;
+margin-left: 5px;
+margin-bottom: 20px;
+}
+#note{
+text-align: center;
+}
+label{
+margin-left: 5px;
+}
+    </style>
+</head>
+
+<body>
+    
+    <script>
+        'use strict';
+        /// <reference path="https://ajax.googleapis.com/ajax/libs/angularjs/1.2.3/angular.min.js" />
+        var myApp = angular.module('myApp', []);
+
+        //constants
+        myApp.constant('KEY_CODES', {
+            KEY_LEFT: 37,
+            KEY_RIGTH: 39,
+            KEY_UP: 38,
+            KEY_DOWN: 40
+        });
+
+        myApp.controller('Process_cards', function ($scope) {
+
+            var data,
+            id = 0;
+
+            $scope.mode = "bul";
+           
+            //ugly hack coz iframe src bind not working
+            var frame = document.getElementById('frame');
+
+            if (!load_data()) {
+                data = [
+                     {bul:"Име", eng:"Name"},
+                    {bul:"Война",eng: "War"},
+                    { bul: "Мир", eng: "Peace" }
+                ];
+            } else {
+                data = load_data();
+            }
+            //debugger;
+            $scope.mute = false;
+
+            say_word();
+
+            $scope.current = data[0][$scope.mode];
+            
+            $scope.invert = function () {
+
+                for (var i = 0; i < data.length; i++) {
+                    if (data[i].bul === $scope.current) {
+                        $scope.mode = "eng";
+                        $scope.current = data[i].eng;
+                        if (!$scope.mute) {
+                            say_word(data[i].eng);
+                        }
+                    } else if (data[i].eng === $scope.current) {
+                        $scope.mode = "bul";
+                        $scope.current = data[i].bul;
+                    }
+                }
+            };
+
+            $scope.next = function (noedit) {
+                if (data.length === 0) {
+                    return;
+                }
+
+                if (!noedit) {
+                    //save in case of contenteditable
+                    data[id][$scope.mode] = $scope.current;
+                }
+
+                id++;
+                id %= data.length;
+
+                $scope.current = data[id][$scope.mode];
+                if ($scope.mode === "eng" && !$scope.mute) {
+                    say_word($scope.current);
+                }
+            }
+
+            $scope.prev = function () {
+                if (data.length === 0) {
+                    return;
+                }
+
+                id--;
+                if (id === -1) {
+                    id = data.length - 1;
+                }
+                $scope.current = data[id][$scope.mode];
+                if ($scope.mode === "eng" && !$scope.mute) {
+                    say_word($scope.current);
+                }
+            }
+
+            $scope.add = function () {
+                //bulgarian letters 
+                var bul_regex = /[\u0400-\u04FF]{2,30}/;
+                var ang_regex = /[a-zA-Z]{2,30}/;
+
+                if (!$scope.bul || !$scope.eng) {
+                    return;
+                }
+
+                if ($scope.eng.match(ang_regex) === null ||
+                    $scope.bul.match(bul_regex) === null) {
+                    console.log('mlq');
+                    return;
+                }
+
+                // check if word already exists
+                if (!data.filter(function (item) {
+                return item.bul == $scope.bul;
+                }).length) {
+                    var obj = { bul: $scope.bul, eng: $scope.eng };
+                    data.push(obj);
+
+                    $scope.bul = "";
+                    $scope.eng = "";
+                }
+            }
+
+            $scope.delete = function () {
+                if (data.length === 0) {
+                    return;
+                }
+                console.log(id);
+                console.log(data[id]);
+                console.log(data.length);
+                data.splice(id, 1);
+                //call next word with no edit option
+                $scope.next("noedit");
+            }
+
+            function say_word(word) {
+                word = word || "hi";
+                word = word.toLowerCase();
+                var url = "https://ssl.gstatic.com/dictionary/static/sounds/de/0/" + word + ".mp3";
+                frame.setAttribute("src", url);
+            }
+
+            $scope.$watch('mode', function () {
+                $scope.current = data[id][$scope.mode];
+            });
+
+            $scope.save = function () {
+                save_data(data);
+            }
+
+            $scope.load = function () {
+                var ls_data = load_data();
+                return ls_data;
+            }
+
+            function save_data(data) {
+                localStorage.setItem('data', JSON.stringify(data));
+            }
+
+            function load_data() {
+                if (localStorage.getItem('data') != null) {
+                    var ls_data = JSON.parse(localStorage.getItem('data'));
+                    return ls_data;
+                }
+            }
+            
+        });
+
+
+        myApp.directive('prev', function ($document, KEY_CODES) {
+           
+            return function (scope, element, attr) {
+
+                $document.on('keydown', function () {
+                    if (event.which === KEY_CODES.KEY_LEFT) {
+                        scope.$apply(scope.prev);
+                        event.preventDefault();
+                    }
+                })
+            }
+        });
+
+        myApp.directive('next', function ($document, KEY_CODES) {
+
+            return function (scope, element, attr) {
+
+                $document.on('keydown', function () {
+                    if (event.which === KEY_CODES.KEY_RIGTH) {
+                        scope.$apply(scope.next);
+                        event.preventDefault();
+                    }
+                });
+            }
+        });
+
+        myApp.directive('invert', function ($document, KEY_CODES) {
+
+            return function (scope, element, attr) {
+
+                $document.on('keydown', function () {
+
+                    if (event.which === KEY_CODES.KEY_UP || event.which === KEY_CODES.KEY_DOWN) {
+                        scope.$apply(scope.invert);
+                        event.preventDefault();
+                    }
+                });
+            }
+        });
+
+        myApp.directive('contenteditable', ['$timeout', function ($timeout) {
+            return {
+                restrict: 'A',
+                require: '?ngModel',
+                link: function (scope, element, attrs, ngModel) {
+                    // don't do anything unless this is actually bound to a model
+                    if (!ngModel) {
+                        return
+                    }
+
+                    // options
+                    var opts = {}
+                    angular.forEach([
+                      'stripBr',
+                      'noLineBreaks',
+                      'selectNonEditable',
+                      'moveCaretToEndOnChange',
+                    ], function (opt) {
+                        var o = attrs[opt]
+                        opts[opt] = o && o !== 'false'
+                    })
+
+                    // view -> model
+                    element.bind('input', function (e) {
+                        scope.$apply(function () {
+                            var html, html2, rerender
+                            html = element.html()
+                            rerender = false
+                            if (opts.stripBr) {
+                                html = html.replace(/<br>$/, '')
+                            }
+                            if (opts.noLineBreaks) {
+                                html2 = html.replace(/<div>/g, '').replace(/<br>/g, '').replace(/<\/div>/g, '')
+                                if (html2 !== html) {
+                                    rerender = true
+                                    html = html2
+                                }
+                            }
+                            ngModel.$setViewValue(html)
+                            if (rerender) {
+                                ngModel.$render()
+                            }
+                            if (html === '') {
+                                // the cursor disappears if the contents is empty
+                                // so we need to refocus
+                                $timeout(function () {
+                                    element[0].blur()
+                                    element[0].focus()
+                                })
+                            }
+                        })
+                    })
+
+                    // model -> view
+                    var oldRender = ngModel.$render
+                    ngModel.$render = function () {
+                        var el, el2, range, sel
+                        if (!!oldRender) {
+                            oldRender()
+                        }
+                        element.html(ngModel.$viewValue || '')
+                        if (opts.moveCaretToEndOnChange) {
+                            el = element[0]
+                            range = document.createRange()
+                            sel = window.getSelection()
+                            if (el.childNodes.length > 0) {
+                                el2 = el.childNodes[el.childNodes.length - 1]
+                                range.setStartAfter(el2)
+                            } else {
+                                range.setStartAfter(el)
+                            }
+                            range.collapse(true)
+                            sel.removeAllRanges()
+                            sel.addRange(range)
+                        }
+                    }
+                    if (opts.selectNonEditable) {
+                        element.bind('click', function (e) {
+                            var range, sel, target
+                            target = e.toElement
+                            if (target !== this && angular.element(target).attr('contenteditable') === 'false') {
+                                range = document.createRange()
+                                sel = window.getSelection()
+                                range.setStartBefore(target)
+                                range.setEndAfter(target)
+                                sel.removeAllRanges()
+                                sel.addRange(range)
+                            }
+                        })
+                    }
+                }
+            }
+        }]);
+</script>
+
+    
+    <div id="wrapper">
+    <div data-ng-controller="Process_cards" >
+        <div id="word" ng-change="edit()" data-ng-model="current" contenteditable="true">{{current}}</div>
+       	
+        <button class="first_line" data-prev data-ng-click="prev()">PREV</button>
+        <button class="first_line" data-invert data-ng-click="invert()">TRANSLATE</button>
+        <button class="first_line" data-next data-ng-click="next()">NEXT</button>
+       	
+        <br />
+        
+        <br />
+        CHOOSE LANGUAGE:
+  <select data-ng-model="mode">
+      <option selected >bul</option>
+      <option >eng</option>
+  </select>
+         mute<input type="checkbox" data-ng-model="mute" data-ng-true-value="true" data-ng-false-value="false">
+ 
+        <div>ADD WORD TO DICTIONARY</div>
+        <div>
+            <label>BULGARIAN:</label>
+<label>ENGLISH:</label>
+<br/>
+<input class="newword" data-ng-model="bul" />
+            <input class="newword" data-ng-model="eng" />
+            <br />
+            <button class="second_line" data-ng-click="add()">ADD</button>
+<button class="second_line" data-ng-click="save()">SAVE</button>
+<button class="second_line" data-ng-click="edit()">EDIT</button>
+<button class="second_line" data-ng-click="delete()">DELETE</button>
+            <div id="frame_holder">
+                <iframe id='frame'></iframe>
+            </div>
+<p id="note">Note: Use keyboard keys to navigate words and languages</p>
+        </div>
+
+    </div>
+        </div>
+        
+
+
+
+</body>
+</html>
